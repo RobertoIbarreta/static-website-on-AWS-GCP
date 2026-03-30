@@ -1,0 +1,31 @@
+# Terraform — local working directory (plugins, modules cache)
+.terraform/
+
+# Terraform — state (never commit)
+*.tfstate
+*.tfstate.*
+
+# Terraform — state lock info (if present)
+.terraform.tfstate.lock.info
+
+# Terraform — crash logs
+crash.log
+crash.*.log
+
+# Terraform — saved plan files (often contain resource addresses / hints)
+*.tfplan
+tfplan
+
+# Terraform — variable files that may hold secrets (use *.example.tfvars committed instead)
+*.tfvars
+*.tfvars.json
+
+# Terraform — CLI config (may reference credentials)
+.terraformrc
+terraform.rc
+
+# Terraform — override files (local-only)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
