@@ -1,0 +1,10 @@
+project_id       = "your-gcp-project-id"
+region           = "asia-southeast1"
+project_name     = "my-static-site"
+domain_name      = "example.com"
+site_subdomain   = "www"
+dns_managed_zone = "example-com-zone"
+labels = {
+  environment = "prod"
+  owner       = "your-name"
+}

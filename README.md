@@ -97,6 +97,189 @@ Open your domain in browser:
 
 If cert/DNS is still propagating, wait a few minutes and retry.
 
+## Deploy React Vite App to GCP (Step by Step)
+
+### Quick command checklist
+
+Use this if you want the shortest end-to-end flow.
+
+```powershell
+# 1) Auth + project
+gcloud auth login
+gcloud auth application-default login
+gcloud config set project YOUR_GCP_PROJECT_ID
+gcloud services enable compute.googleapis.com dns.googleapis.com certificatemanager.googleapis.com
+
+# 2) Terraform provision
+cd gcp
+copy terraform.tfvars.example terraform.tfvars
+# edit terraform.tfvars (project_id, project_name, domain_name, site_subdomain, dns_managed_zone)
+terraform init
+terraform apply
+
+# 3) Build SPA
+cd ..
+npm --prefix site install
+npm --prefix site run build
+
+# 4) Upload build to GCS
+gcloud storage rsync .\site\dist gs://YOUR_BUCKET_NAME --recursive --delete-unmatched-destination-objects
+
+# 5) Invalidate CDN cache
+cd gcp
+gcloud compute url-maps invalidate-cdn-cache YOUR_PROJECT_NAME-https-map --path "/*" --global
+```
+
+### 1) Prerequisites
+
+Install and configure:
+- Terraform (`terraform --version`)
+- Google Cloud SDK (`gcloud --version`)
+- Node.js + npm (`node -v`, `npm -v`)
+
+Authenticate to GCP and set project:
+
+```powershell
+gcloud auth login
+gcloud auth application-default login
+gcloud config set project YOUR_GCP_PROJECT_ID
+```
+
+Enable required APIs:
+
+```powershell
+gcloud services enable compute.googleapis.com dns.googleapis.com certificatemanager.googleapis.com
+```
+
+### 2) Create Cloud DNS managed zone (manual)
+
+This Terraform setup expects an existing Cloud DNS managed zone name in `dns_managed_zone`.
+
+1. Open GCP Console -> Network services -> Cloud DNS
+2. Create a public managed zone for your root domain (example: `example.com`)
+3. Copy the managed zone name (example: `example-com-zone`)
+4. Copy the NS records shown by Cloud DNS
+5. Update nameservers at your domain registrar to these Cloud DNS NS values
+6. Wait for DNS delegation to propagate
+
+### 3) Configure GCP Terraform variables
+
+From repo root:
+
+```powershell
+cd gcp
+copy terraform.tfvars.example terraform.tfvars
+```
+
+Edit `gcp/terraform.tfvars` and set:
+- `project_id`
+- `project_name`
+- `domain_name`
+- `site_subdomain`
+- `dns_managed_zone`
+- optional `region`, `labels`
+
+### 4) Provision GCP infrastructure
+
+From `gcp/`:
+
+```powershell
+terraform init
+terraform plan
+terraform apply
+```
+
+This creates:
+- GCS bucket for static site
+- Backend bucket + Cloud CDN
+- HTTPS global load balancer
+- Google-managed SSL certificate
+- Cloud DNS `A` records for apex and subdomain
+
+Security model:
+- End users access content through the HTTPS load balancer.
+- Objects are publicly readable in GCS (required for backend bucket pattern).
+- CDN and HTTPS load balancer are used for custom domain, TLS, and edge caching.
+
+### 5) Get deployment values
+
+From `gcp/`:
+
+```powershell
+terraform output
+```
+
+Use:
+- `bucket_name` for upload target
+- `global_ip_address` for DNS verification
+- `site_fqdn` for final URL
+
+### 6) Build the React Vite app
+
+From repo root:
+
+```powershell
+npm --prefix site install
+npm --prefix site run build
+```
+
+Build output will be in:
+- `site/dist`
+
+### 7) Upload SPA files to GCS
+
+From repo root:
+
+```powershell
+gcloud storage rsync .\site\dist gs://YOUR_BUCKET_NAME --recursive --delete-unmatched-destination-objects
+```
+
+This upload command uses your authenticated identity to write objects.
+Bucket objects are served publicly through the load balancer/backend bucket architecture.
+
+Optional cache-control optimization:
+- Upload `index.html` with no-cache
+- Upload hashed assets with long cache
+
+### 8) Invalidate Cloud CDN cache after upload
+
+From `gcp/`, invalidate URL map cache:
+
+```powershell
+gcloud compute url-maps invalidate-cdn-cache YOUR_PROJECT_NAME-https-map --path "/*" --global
+```
+
+Example: if `project_name = "my-static-site"`, URL map name is `my-static-site-https-map`.
+
+### 9) Verify website
+
+Open:
+- `https://<site_subdomain>.<domain_name>`
+- `https://<domain_name>`
+
+Notes:
+- Google-managed certificate can take some time to become `ACTIVE`
+- DNS and cert propagation may require several minutes
+
+### GCP troubleshooting: `allUsers` forbidden by public access prevention
+
+If Terraform fails on:
+- `google_storage_bucket_iam_member.public_read`
+- with error: `allUsers and allAuthenticatedUsers are not allowed since public access prevention is enforced`
+
+Set this on the bucket resource and re-apply:
+
+```hcl
+public_access_prevention = "inherited"
+```
+
+Then run:
+
+```powershell
+cd gcp
+terraform apply
+```
+
 ## Local development (React Vite)
 
 From repo root:
@@ -204,6 +387,14 @@ From repo root:
 cd gcp
 terraform init
 terraform plan -destroy
+terraform destroy
+```
+
+If destroy fails because the bucket is not empty (recommended Option A):
+
+```powershell
+gcloud storage rm -r "gs://YOUR_BUCKET_NAME/**"
+cd gcp
 terraform destroy
 ```
 

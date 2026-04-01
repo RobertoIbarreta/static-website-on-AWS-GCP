@@ -15,6 +15,8 @@ crash.*.log
 # Terraform — saved plan files (often contain resource addresses / hints)
 *.tfplan
 tfplan
+*.plan
+myplan
 
 # Terraform — variable files that may hold secrets (use *.example.tfvars committed instead)
 *.tfvars
@@ -29,3 +31,23 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# Node / React / Vite
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite build output and cache
+dist/
+.vite/
+
+# Env files (frontend)
+.env
+.env.*
+!.env.example
+
+# GCP local key artifacts
+cdn-key.txt
+*.hmac
