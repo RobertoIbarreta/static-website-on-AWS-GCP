@@ -6,6 +6,12 @@ This repository contains:
 - A React + Vite SPA app (`site/`)
 - A PowerShell deploy script for AWS (`deploy-aws-spa.ps1`)
 
+## Architecture
+
+The following diagram shows the AWS architecture used in this project.
+
+![AWS static website architecture](docs/aws-architecture.png)
+
 ## Deploy React Vite App to AWS S3 + CloudFront (Step by Step)
 
 ### 1) Prerequisites
